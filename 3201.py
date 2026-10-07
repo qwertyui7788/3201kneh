@@ -2,7 +2,7 @@ import streamlit as st
 import random
 
 # ==========================================
-# 설정
+# Streamlit 설정
 # ==========================================
 
 st.set_page_config(
@@ -13,7 +13,7 @@ st.set_page_config(
 
 
 # ==========================================
-# 몬스터
+# 몬스터 데이터
 # ==========================================
 
 NORMAL_MONSTERS = [
@@ -27,6 +27,8 @@ NORMAL_MONSTERS = [
     ("👻 유령", 100, 18),
     ("🧟 좀비", 110, 19),
     ("🧙 다크 메이지", 120, 22),
+    ("🦂 독전갈", 130, 23),
+    ("🧛 뱀파이어", 145, 25),
 ]
 
 BOSSES = [
@@ -37,6 +39,57 @@ BOSSES = [
     ("💀 죽음의 기사", 420, 42),
     ("🐲 고대 드래곤", 500, 50),
 ]
+
+
+# ==========================================
+# 경험치
+# ==========================================
+
+def required_exp():
+
+    return 100 + (
+        (st.session_state.level - 1) * 50
+    )
+
+
+def gain_exp(amount):
+
+    st.session_state.exp += amount
+
+    level_up_count = 0
+
+    while (
+        st.session_state.exp
+        >= required_exp()
+    ):
+
+        st.session_state.exp -= required_exp()
+
+        st.session_state.level += 1
+
+        level_up_count += 1
+
+        # ------------------------------
+        # 레벨업 능력치
+        # ------------------------------
+
+        st.session_state.max_hp += 20
+
+        st.session_state.attack += 5
+
+        st.session_state.defense += 2
+
+        st.session_state.evasion = min(
+            50,
+            st.session_state.evasion + 1
+        )
+
+        # 레벨업하면 HP 완전 회복
+        st.session_state.hp = (
+            st.session_state.max_hp
+        )
+
+    return level_up_count
 
 
 # ==========================================
@@ -53,27 +106,53 @@ def spawn_monster():
 
         name, hp, damage = random.choice(BOSSES)
 
-        hp += (st.session_state.level - 1) * 20
-        damage += (st.session_state.level - 1) * 3
+        hp += (
+            st.session_state.level - 1
+        ) * 20
+
+        damage += (
+            st.session_state.level - 1
+        ) * 3
 
         st.session_state.monster_name = name
         st.session_state.monster_hp = hp
         st.session_state.monster_max_hp = hp
         st.session_state.monster_damage = damage
+
         st.session_state.is_boss = True
+
+        # 보스 경험치
+        st.session_state.monster_exp = (
+            120
+            + st.session_state.level * 30
+        )
 
     else:
 
-        name, hp, damage = random.choice(NORMAL_MONSTERS)
+        name, hp, damage = random.choice(
+            NORMAL_MONSTERS
+        )
 
-        hp += (st.session_state.level - 1) * 10
-        damage += (st.session_state.level - 1) * 2
+        hp += (
+            st.session_state.level - 1
+        ) * 10
+
+        damage += (
+            st.session_state.level - 1
+        ) * 2
 
         st.session_state.monster_name = name
         st.session_state.monster_hp = hp
         st.session_state.monster_max_hp = hp
         st.session_state.monster_damage = damage
+
         st.session_state.is_boss = False
+
+        # 일반 몬스터 경험치
+        st.session_state.monster_exp = (
+            25
+            + st.session_state.level * 5
+        )
 
 
 # ==========================================
@@ -82,57 +161,61 @@ def spawn_monster():
 
 def reset_game():
 
-    # -------------------------
-    # 기본 스탯
-    # -------------------------
+    # ------------------------------
+    # 기본 능력치
+    # ------------------------------
 
     st.session_state.hp = 100
     st.session_state.max_hp = 100
 
     st.session_state.attack = 20
 
-    # ⭐ 방어력
     st.session_state.defense = 5
 
-    # ⭐ 회피율
     st.session_state.evasion = 10
 
-    # -------------------------
-    # 성장
-    # -------------------------
+    # ------------------------------
+    # 레벨 / 경험치
+    # ------------------------------
 
     st.session_state.level = 1
-    st.session_state.gold = 50
+    st.session_state.exp = 0
 
-    # -------------------------
-    # 아이템
-    # -------------------------
+    # ------------------------------
+    # 골드 / 아이템
+    # ------------------------------
+
+    st.session_state.gold = 50
 
     st.session_state.potion = 3
 
-    # -------------------------
+    # ------------------------------
     # 기록
-    # -------------------------
+    # ------------------------------
 
     st.session_state.kill = 0
     st.session_state.boss_kill = 0
     st.session_state.combo = 0
 
-    # -------------------------
-    # 장비 레벨
-    # -------------------------
+    # ------------------------------
+    # 장비
+    # ------------------------------
 
     st.session_state.weapon_level = 1
     st.session_state.armor_level = 1
     st.session_state.boots_level = 1
 
-    # -------------------------
+    # ------------------------------
     # 전투 상태
-    # -------------------------
+    # ------------------------------
 
     st.session_state.defending = False
     st.session_state.game_over = False
     st.session_state.is_boss = False
+
+    # ------------------------------
+    # 메시지
+    # ------------------------------
 
     st.session_state.message = (
         "⚔️ 새로운 모험이 시작되었습니다!"
@@ -148,23 +231,24 @@ def reset_game():
 def monster_attack():
 
     # ======================================
-    # 회피율 판정
+    # 회피 판정
     # ======================================
 
-    evasion = st.session_state.evasion
-
-    if random.randint(1, 100) <= evasion:
+    if random.randint(
+        1,
+        100
+    ) <= st.session_state.evasion:
 
         st.session_state.message = (
             f"💨 회피 성공! "
-            f"({evasion}% 확률)"
+            f"({st.session_state.evasion}%)"
         )
 
         return
 
 
     # ======================================
-    # 몬스터 기본 공격력
+    # 기본 공격력
     # ======================================
 
     damage = random.randint(
@@ -207,10 +291,8 @@ def monster_attack():
 
 
     # ======================================
-    # 방어력 적용
+    # 방어력
     # ======================================
-
-    original_damage = damage
 
     damage -= st.session_state.defense
 
@@ -231,18 +313,16 @@ def monster_attack():
         st.session_state.defending = False
 
         st.session_state.message += (
-            " 🛡️ 방어 자세!"
+            " 🛡️ 방어 성공!"
         )
 
 
     # ======================================
-    # 피해 적용
+    # 피해
     # ======================================
 
     st.session_state.hp -= damage
 
-
-    # 피해 표시
     st.session_state.message += (
         f" 💔 {damage} 피해"
     )
@@ -251,11 +331,75 @@ def monster_attack():
     if st.session_state.hp <= 0:
 
         st.session_state.hp = 0
+
         st.session_state.game_over = True
 
         st.session_state.message = (
             "💀 당신은 쓰러졌습니다!"
         )
+
+
+# ==========================================
+# 패링
+# ==========================================
+
+def parry():
+
+    # 패링 성공 확률
+    success_rate = 40
+
+    # ======================================
+    # 성공
+    # ======================================
+
+    if random.randint(
+        1,
+        100
+    ) <= success_rate:
+
+        # 적 공격을 완전히 무효화
+        # 그리고 반격 피해
+        counter_damage = random.randint(
+            st.session_state.attack,
+            st.session_state.attack + 20
+        )
+
+        st.session_state.monster_hp -= (
+            counter_damage
+        )
+
+        st.session_state.message = (
+            "⚡ PARRY 성공! "
+            f"공격을 막고 {counter_damage} 반격!"
+        )
+
+        # 몬스터 처치
+        if st.session_state.monster_hp <= 0:
+
+            st.session_state.monster_hp = 0
+
+            monster_defeated()
+
+            if not st.session_state.game_over:
+
+                st.session_state.message = (
+                    "⚡ PARRY 성공! "
+                    "💥 반격으로 적을 쓰러뜨렸습니다!"
+                )
+
+    # ======================================
+    # 실패
+    # ======================================
+
+    else:
+
+        st.session_state.message = (
+            "❌ 패링 실패!"
+        )
+
+        # 패링 실패 시
+        # 몬스터 공격을 그대로 받음
+        monster_attack()
 
 
 # ==========================================
@@ -266,93 +410,91 @@ def monster_defeated():
 
     was_boss = st.session_state.is_boss
 
-
     # ======================================
-    # 보스 보상
+    # 골드
     # ======================================
 
     if was_boss:
 
-        reward = random.randint(100, 200)
+        reward = random.randint(
+            100,
+            200
+        )
 
-        st.session_state.gold += reward
         st.session_state.boss_kill += 1
 
+        st.session_state.gold += reward
+
+        # 보스 보너스
         st.session_state.max_hp += 30
+
         st.session_state.attack += 10
 
-        # 보스 처치 후 완전 회복
-        st.session_state.hp = st.session_state.max_hp
+        st.session_state.hp = (
+            st.session_state.max_hp
+        )
 
         st.session_state.message = (
             f"👑 보스 처치! "
             f"💰 +{reward}G!"
         )
 
-
-    # ======================================
-    # 일반 몬스터 보상
-    # ======================================
-
     else:
 
-        reward = random.randint(15, 35)
+        reward = random.randint(
+            15,
+            35
+        )
 
         st.session_state.gold += reward
 
         st.session_state.message = (
-            f"🎉 {st.session_state.monster_name} 처치! "
+            f"🎉 "
+            f"{st.session_state.monster_name} "
+            f"처치! "
             f"💰 +{reward}G!"
         )
 
 
     # ======================================
-    # 처치 수
+    # 처치 기록
     # ======================================
 
     st.session_state.kill += 1
+
     st.session_state.combo += 1
 
 
     # ======================================
-    # 레벨 계산
+    # 경험치 획득
     # ======================================
 
-    old_level = st.session_state.level
+    exp_amount = (
+        st.session_state.monster_exp
+    )
 
-    st.session_state.level = (
-        st.session_state.kill // 3 + 1
+    old_level = (
+        st.session_state.level
+    )
+
+    level_count = gain_exp(
+        exp_amount
+    )
+
+
+    st.session_state.message += (
+        f" ⭐ EXP +{exp_amount}"
     )
 
 
     # ======================================
-    # 레벨업
+    # 레벨업 메시지
     # ======================================
 
-    if st.session_state.level > old_level:
-
-        st.session_state.max_hp += 20
-
-        st.session_state.attack += 5
-
-        # 레벨업 시 방어력 +2
-        st.session_state.defense += 2
-
-        # 레벨업 시 회피율 +1%
-        st.session_state.evasion += 1
-
-        # 회피율 최대 50%
-        st.session_state.evasion = min(
-            50,
-            st.session_state.evasion
-        )
-
-        st.session_state.hp = (
-            st.session_state.max_hp
-        )
+    if level_count > 0:
 
         st.session_state.message += (
-            f" ⭐ LEVEL UP! "
+            f" 🎉 LEVEL UP! "
             f"Lv.{st.session_state.level}"
         )
 
@@ -360,7 +502,7 @@ def monster_defeated():
     # 상태 초기화
     st.session_state.defending = False
 
-    # 새 몬스터
+    # 새로운 몬스터
     spawn_monster()
 
 
@@ -400,7 +542,6 @@ def attack():
 
 def strong_attack():
 
-    # 60% 성공
     if random.random() <= 0.6:
 
         damage = random.randint(
@@ -416,12 +557,6 @@ def strong_attack():
             st.session_state.monster_hp = 0
 
             monster_defeated()
-
-            if not st.session_state.game_over:
-
-                st.session_state.message = (
-                    "💥 강공격으로 적을 처치했습니다!"
-                )
 
         else:
 
@@ -462,8 +597,8 @@ def defend():
     if not st.session_state.game_over:
 
         st.session_state.message = (
-            "🛡️ 방어 성공! "
-            "이번 공격의 피해가 추가로 60% 감소합니다."
+            "🛡️ 방어 자세! "
+            "받는 피해가 크게 감소합니다."
         )
 
 
@@ -473,7 +608,10 @@ def defend():
 
 def heal():
 
-    heal_amount = random.randint(15, 30)
+    heal_amount = random.randint(
+        15,
+        30
+    )
 
     old_hp = st.session_state.hp
 
@@ -482,7 +620,9 @@ def heal():
         st.session_state.hp + heal_amount
     )
 
-    actual = st.session_state.hp - old_hp
+    actual = (
+        st.session_state.hp - old_hp
+    )
 
     monster_attack()
 
@@ -508,7 +648,10 @@ def use_potion():
         return
 
 
-    if st.session_state.hp >= st.session_state.max_hp:
+    if (
+        st.session_state.hp
+        >= st.session_state.max_hp
+    ):
 
         st.session_state.message = (
             "❤️ HP가 가득합니다!"
@@ -526,7 +669,9 @@ def use_potion():
         st.session_state.hp + 40
     )
 
-    actual = st.session_state.hp - old_hp
+    actual = (
+        st.session_state.hp - old_hp
+    )
 
     monster_attack()
 
@@ -544,13 +689,15 @@ def use_potion():
 
 def upgrade_weapon():
 
-    cost = st.session_state.weapon_level * 50
-
+    cost = (
+        st.session_state.weapon_level
+        * 50
+    )
 
     if st.session_state.gold < cost:
 
         st.session_state.message = (
-            f"💰 골드가 부족합니다!"
+            "💰 골드가 부족합니다!"
         )
 
         return
@@ -563,8 +710,7 @@ def upgrade_weapon():
     st.session_state.attack += 10
 
     st.session_state.message = (
-        f"🗡️ 무기 강화 성공! "
-        f"Lv.{st.session_state.weapon_level}"
+        "🗡️ 무기 강화 성공!"
     )
 
 
@@ -574,8 +720,10 @@ def upgrade_weapon():
 
 def upgrade_armor():
 
-    cost = st.session_state.armor_level * 60
-
+    cost = (
+        st.session_state.armor_level
+        * 60
+    )
 
     if st.session_state.gold < cost:
 
@@ -593,8 +741,8 @@ def upgrade_armor():
     st.session_state.defense += 4
 
     st.session_state.message = (
-        f"🛡️ 방어구 강화 성공! "
-        f"방어력 +4"
+        "🛡️ 방어구 강화 성공! "
+        "방어력 +4"
     )
 
 
@@ -604,8 +752,10 @@ def upgrade_armor():
 
 def upgrade_boots():
 
-    cost = st.session_state.boots_level * 70
-
+    cost = (
+        st.session_state.boots_level
+        * 70
+    )
 
     if st.session_state.gold < cost:
 
@@ -620,18 +770,14 @@ def upgrade_boots():
 
     st.session_state.boots_level += 1
 
-    # 회피율 +3%
-    st.session_state.evasion += 3
-
-    # 최대 50%
     st.session_state.evasion = min(
         50,
-        st.session_state.evasion
+        st.session_state.evasion + 3
     )
 
     st.session_state.message = (
-        f"👟 신발 강화 성공! "
-        f"회피율 +3%"
+        "👟 신발 강화 성공! "
+        "회피율 +3%"
     )
 
 
@@ -651,16 +797,14 @@ if "hp" not in st.session_state:
 st.title("⚔️ 미니 RPG")
 
 st.write(
-    "공격하고, 방어하고, 회피하면서 "
+    "공격, 방어, 회피, 패링을 활용해서 "
     "몬스터와 보스를 물리치세요!"
 )
 
 
 # ==========================================
-# 플레이어 정보
+# 상단 정보
 # ==========================================
-
-st.subheader("🧙 플레이어")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -695,6 +839,38 @@ with col4:
 
 
 # ==========================================
+# 경험치
+# ==========================================
+
+st.subheader("⭐ 경험치")
+
+next_exp = required_exp()
+
+st.write(
+    f"EXP: "
+    f"{st.session_state.exp}/"
+    f"{next_exp}"
+)
+
+st.progress(
+    min(
+        1.0,
+        st.session_state.exp / next_exp
+    )
+)
+
+
+# ==========================================
+# HP
+# ==========================================
+
+st.progress(
+    st.session_state.hp /
+    st.session_state.max_hp
+)
+
+
+# ==========================================
 # 스탯
 # ==========================================
 
@@ -724,17 +900,11 @@ with col3:
     )
 
 
-st.progress(
-    st.session_state.hp /
-    st.session_state.max_hp
-)
-
-
 st.divider()
 
 
 # ==========================================
-# 보스 표시
+# 보스 경고
 # ==========================================
 
 if st.session_state.is_boss:
@@ -770,6 +940,11 @@ st.progress(
 st.write(
     f"⚔️ 공격력: "
     f"{st.session_state.monster_damage}"
+)
+
+st.write(
+    f"⭐ 처치 시 EXP: "
+    f"{st.session_state.monster_exp}"
 )
 
 
@@ -830,6 +1005,19 @@ if not st.session_state.game_over:
     with col2:
 
         if st.button(
+            "⚡ 패링 (40%)",
+            use_container_width=True
+        ):
+
+            parry()
+            st.rerun()
+
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        if st.button(
             "❤️ 회복",
             use_container_width=True
         ):
@@ -838,9 +1026,7 @@ if not st.session_state.game_over:
             st.rerun()
 
 
-    col1, col2 = st.columns(2)
-
-    with col1:
+    with col2:
 
         if st.button(
             "🧪 물약 사용",
@@ -859,14 +1045,15 @@ st.divider()
 
 st.subheader("🛒 장비 상점")
 
-
-# 무기
 col1, col2, col3 = st.columns(3)
 
+
+# 무기
 with col1:
 
-    weapon_cost = (
-        st.session_state.weapon_level * 50
+    cost = (
+        st.session_state.weapon_level
+        * 50
     )
 
     st.write(
@@ -875,12 +1062,11 @@ with col1:
     )
 
     st.write(
-        f"공격력: "
-        f"{st.session_state.attack}"
+        f"공격력 {st.session_state.attack}"
     )
 
     if st.button(
-        f"강화 {weapon_cost}G",
+        f"강화 {cost}G",
         key="weapon",
         use_container_width=True
     ):
@@ -892,8 +1078,9 @@ with col1:
 # 방어구
 with col2:
 
-    armor_cost = (
-        st.session_state.armor_level * 60
+    cost = (
+        st.session_state.armor_level
+        * 60
     )
 
     st.write(
@@ -902,12 +1089,11 @@ with col2:
     )
 
     st.write(
-        f"방어력: "
-        f"{st.session_state.defense}"
+        f"방어력 {st.session_state.defense}"
     )
 
     if st.button(
-        f"강화 {armor_cost}G",
+        f"강화 {cost}G",
         key="armor",
         use_container_width=True
     ):
@@ -919,8 +1105,9 @@ with col2:
 # 신발
 with col3:
 
-    boots_cost = (
-        st.session_state.boots_level * 70
+    cost = (
+        st.session_state.boots_level
+        * 70
     )
 
     st.write(
@@ -929,12 +1116,11 @@ with col3:
     )
 
     st.write(
-        f"회피율: "
-        f"{st.session_state.evasion}%"
+        f"회피율 {st.session_state.evasion}%"
     )
 
     if st.button(
-        f"강화 {boots_cost}G",
+        f"강화 {cost}G",
         key="boots",
         use_container_width=True
     ):
@@ -944,11 +1130,11 @@ with col3:
 
 
 # ==========================================
-# 물약 상점
+# 물약
 # ==========================================
 
 st.write(
-    f"🧪 현재 물약: "
+    f"🧪 물약: "
     f"{st.session_state.potion}개"
 )
 
@@ -960,6 +1146,7 @@ if st.button(
     if st.session_state.gold >= 20:
 
         st.session_state.gold -= 20
+
         st.session_state.potion += 1
 
         st.session_state.message = (
