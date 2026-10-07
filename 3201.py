@@ -1,167 +1,272 @@
 import streamlit as st
 import random
-import time
 
-# -------------------------
-# 기본 설정
-# -------------------------
 st.set_page_config(
-    page_title="🐍 뱀 게임",
-    page_icon="🐍",
-    layout="centered"
+    page_title="미니 RPG",
+    page_icon="⚔️"
 )
-
-st.title("🐍 뱀 게임")
-
-# 게임판 크기
-WIDTH = 15
-HEIGHT = 15
-
-
-# -------------------------
-# 게임 초기화
-# -------------------------
-def init_game():
-    st.session_state.snake = [(7, 7)]
-    st.session_state.direction = (0, 1)
-    st.session_state.food = create_food()
-    st.session_state.score = 0
-    st.session_state.game_over = False
-
-
-# -------------------------
-# 먹이 생성
-# -------------------------
-def create_food():
-    while True:
-        food = (
-            random.randint(0, HEIGHT - 1),
-            random.randint(0, WIDTH - 1)
-        )
-
-        if food not in st.session_state.snake:
-            return food
-
 
 # -------------------------
 # 게임 시작
 # -------------------------
-if "snake" not in st.session_state:
-    init_game()
+def start_game():
+    st.session_state.player_hp = 100
+    st.session_state.max_hp = 100
+    st.session_state.attack = 20
+    st.session_state.level = 1
+    st.session_state.gold = 0
+
+    st.session_state.monster = "슬라임"
+    st.session_state.monster_hp = 50
+    st.session_state.monster_max_hp = 50
+
+    st.session_state.game_over = False
+    st.session_state.log = ["⚔️ 모험이 시작되었습니다!"]
+
+
+# 처음 실행
+if "player_hp" not in st.session_state:
+    start_game()
 
 
 # -------------------------
-# 방향 버튼
+# 새로운 몬스터
 # -------------------------
-st.write("### 방향키")
+def new_monster():
+    monsters = [
+        ("🟢 슬라임", 50),
+        ("👹 고블린", 70),
+        ("💀 해골", 90),
+        ("🐲 드래곤", 120)
+    ]
 
-col1, col2, col3 = st.columns(3)
+    name, hp = random.choice(monsters)
 
-with col2:
-    if st.button("⬆️", use_container_width=True):
-        if st.session_state.direction != (1, 0):
-            st.session_state.direction = (-1, 0)
+    # 레벨에 따라 체력 증가
+    hp += (st.session_state.level - 1) * 10
+
+    st.session_state.monster = name
+    st.session_state.monster_hp = hp
+    st.session_state.monster_max_hp = hp
+
+
+# -------------------------
+# 몬스터 공격
+# -------------------------
+def monster_attack():
+
+    damage = random.randint(5, 15)
+
+    st.session_state.player_hp -= damage
+
+    st.session_state.log.insert(
+        0,
+        f"👹 {st.session_state.monster}이(가) "
+        f"{damage}의 피해를 입혔습니다."
+    )
+
+    if st.session_state.player_hp <= 0:
+        st.session_state.player_hp = 0
+        st.session_state.game_over = True
+        st.session_state.log.insert(
+            0,
+            "💀 당신은 쓰러졌습니다!"
+        )
+
+
+# -------------------------
+# 일반 공격
+# -------------------------
+def normal_attack():
+
+    damage = random.randint(
+        st.session_state.attack - 5,
+        st.session_state.attack + 5
+    )
+
+    st.session_state.monster_hp -= damage
+
+    st.session_state.log.insert(
+        0,
+        f"⚔️ 공격! {damage}의 피해를 입혔습니다."
+    )
+
+    check_monster()
+
+
+# -------------------------
+# 강한 공격
+# -------------------------
+def strong_attack():
+
+    if random.random() < 0.6:
+
+        damage = random.randint(25, 40)
+
+        st.session_state.monster_hp -= damage
+
+        st.session_state.log.insert(
+            0,
+            f"💥 강공격 성공! {damage}의 피해!"
+        )
+
+        check_monster()
+
+    else:
+
+        st.session_state.log.insert(
+            0,
+            "💨 강공격이 빗나갔습니다!"
+        )
+
+        monster_attack()
+
+
+# -------------------------
+# 회복
+# -------------------------
+def heal():
+
+    amount = random.randint(15, 30)
+
+    old_hp = st.session_state.player_hp
+
+    st.session_state.player_hp = min(
+        st.session_state.max_hp,
+        st.session_state.player_hp + amount
+    )
+
+    healed = st.session_state.player_hp - old_hp
+
+    st.session_state.log.insert(
+        0,
+        f"❤️ 체력을 {healed} 회복했습니다."
+    )
+
+    monster_attack()
+
+
+# -------------------------
+# 몬스터 처치 확인
+# -------------------------
+def check_monster():
+
+    if st.session_state.monster_hp <= 0:
+
+        reward = random.randint(10, 30)
+
+        st.session_state.gold += reward
+        st.session_state.level += 1
+
+        st.session_state.max_hp += 10
+        st.session_state.attack += 3
+        st.session_state.player_hp = st.session_state.max_hp
+
+        st.session_state.log.insert(
+            0,
+            f"🎉 {st.session_state.monster} 처치!"
+        )
+
+        st.session_state.log.insert(
+            0,
+            f"💰 {reward} 골드를 얻었습니다!"
+        )
+
+        new_monster()
+
+    else:
+        monster_attack()
+
+
+# -------------------------
+# 화면
+# -------------------------
+st.title("⚔️ 미니 RPG")
+st.write("몬스터를 쓰러뜨리고 계속해서 레벨을 올려보세요!")
+
+st.divider()
+
+# 플레이어
+st.subheader("🧙 플레이어")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if st.button("⬅️", use_container_width=True):
-        if st.session_state.direction != (0, 1):
-            st.session_state.direction = (0, -1)
-
-with col2:
-    if st.button("⬇️", use_container_width=True):
-        if st.session_state.direction != (-1, 0):
-            st.session_state.direction = (1, 0)
-
-with col3:
-    if st.button("➡️", use_container_width=True):
-        if st.session_state.direction != (0, -1):
-            st.session_state.direction = (0, 1)
-
-
-# -------------------------
-# 게임 진행
-# -------------------------
-if not st.session_state.game_over:
-
-    direction = st.session_state.direction
-    head = st.session_state.snake[0]
-
-    new_head = (
-        head[0] + direction[0],
-        head[1] + direction[1]
+    st.metric(
+        "❤️ 체력",
+        f"{st.session_state.player_hp}/{st.session_state.max_hp}"
     )
 
-    # 벽 충돌
-    if (
-        new_head[0] < 0
-        or new_head[0] >= HEIGHT
-        or new_head[1] < 0
-        or new_head[1] >= WIDTH
-    ):
-        st.session_state.game_over = True
+with col2:
+    st.metric(
+        "⭐ 레벨",
+        st.session_state.level
+    )
 
-    # 자기 몸 충돌
-    elif new_head in st.session_state.snake:
-        st.session_state.game_over = True
+with col3:
+    st.metric(
+        "💰 골드",
+        st.session_state.gold
+    )
 
-    else:
-        st.session_state.snake.insert(0, new_head)
+st.progress(
+    st.session_state.player_hp /
+    st.session_state.max_hp
+)
 
-        # 먹이를 먹었는지 확인
-        if new_head == st.session_state.food:
-            st.session_state.score += 1
-            st.session_state.food = create_food()
-        else:
-            st.session_state.snake.pop()
+st.divider()
+
+# 몬스터
+st.subheader(st.session_state.monster)
+
+st.write(
+    f"❤️ 몬스터 체력: "
+    f"{st.session_state.monster_hp}/"
+    f"{st.session_state.monster_max_hp}"
+)
+
+st.progress(
+    max(0, st.session_state.monster_hp) /
+    st.session_state.monster_max_hp
+)
+
+st.divider()
+
+# 행동
+if not st.session_state.game_over:
+
+    st.subheader("행동을 선택하세요!")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("⚔️ 공격", use_container_width=True):
+            normal_attack()
+            st.rerun()
+
+    with col2:
+        if st.button("💥 강공격", use_container_width=True):
+            strong_attack()
+            st.rerun()
+
+    with col3:
+        if st.button("❤️ 회복", use_container_width=True):
+            heal()
+            st.rerun()
 
 
-# -------------------------
-# 점수
-# -------------------------
-st.write(f"### 점수: {st.session_state.score}")
+# 전투 기록
+st.subheader("📜 전투 기록")
+
+for message in st.session_state.log[:10]:
+    st.write(message)
 
 
-# -------------------------
-# 게임판 출력
-# -------------------------
-board = ""
-
-for y in range(HEIGHT):
-    for x in range(WIDTH):
-
-        position = (y, x)
-
-        if position == st.session_state.snake[0]:
-            board += "🟢"
-
-        elif position in st.session_state.snake:
-            board += "🟩"
-
-        elif position == st.session_state.food:
-            board += "🍎"
-
-        else:
-            board += "⬜"
-
-    board += "\n"
-
-
-st.code(board, language="text")
-
-
-# -------------------------
 # 게임 오버
-# -------------------------
 if st.session_state.game_over:
-    st.error("💀 게임 오버!")
+
+    st.error("💀 GAME OVER")
 
     if st.button("🔄 다시 시작", use_container_width=True):
-        init_game()
+        start_game()
         st.rerun()
-
-else:
-    # 자동으로 게임 진행
-    time.sleep(0.25)
-    st.rerun()
